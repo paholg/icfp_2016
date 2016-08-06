@@ -2,7 +2,7 @@ extern crate icfp_2016 as icfp;
 extern crate num;
 
 use num::Rational;
-use icfp::{Point, Solution};
+use icfp::*;
 
 fn main() {
     let sol: Solution = Solution {
@@ -34,5 +34,10 @@ fn main() {
 
     assert!(sol.verify().is_ok());
 
-    println!("{}", sol);
+    let mut f = std::fs::File::open("problems/2.txt").unwrap();
+    let mut reader = std::io::BufReader::new(f);
+    let problem = Problem::read(reader).unwrap();
+
+    println!("{:#?}", problem);
+    // println!("{}", sol);
 }
