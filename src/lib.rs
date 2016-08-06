@@ -9,17 +9,19 @@ pub struct Point {
     y: Rational,
 }
 
+impl std::fmt::Display for Point {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        try!(write!(f, "{},{}", self.x, self.y));
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Polygon {
     vertices: Vec<Point>,
     skeleton: Vec<[usize; 2]>,
 }
 
-pub struct Solution {
-    sources: Vec<Point>,
-    facets: Vec<Vec<usize>>,
-    destinations: Vec<Point>,
-}
 
 // A solution is valid iff:
 // - All xs and ys of source must be in [0, 1]
@@ -43,3 +45,34 @@ pub struct Solution {
 // - Whether the destination can be reached just with folds, or whether it requires parallel
 //   transformation and/or rotation
 // - Whether the paper is folded at all
+
+pub struct Solution {
+    sources: Vec<Point>,
+    facets: Vec<Vec<usize>>,
+    destinations: Vec<Point>,
+}
+
+impl std::fmt::Display for Solution {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        try!(write!(f, "{}\n", self.sources.len()));
+        for source in &self.sources {
+            try!(write!(f, "{}\n", source));
+        }
+
+        try!(write!(f, "{}\n", self.facets.len()));
+
+        for facet in &self.facets {
+            try!(write!(f, "{}", facet.len()));
+            for vertex in facet {
+                try!(write!(f, " {}", vertex));
+            }
+            try!(write!(f, "\n"));
+        }
+
+        for destination in &self.destinations {
+            try!(write!(f, "{}\n", destination));
+        }
+
+        Ok(())
+    }
+}
