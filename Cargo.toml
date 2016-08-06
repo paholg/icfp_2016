@@ -1,0 +1,8 @@
+[package]
+name = "icfp-2016"
+version = "0.1.0"
+authors = ["Paho Lurie-Gregg <paho@paholg.com>"]
+
+[dependencies]
+  num = "*"
+  serde = "*"
