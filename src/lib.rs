@@ -9,6 +9,12 @@ pub struct Point {
     y: Rational,
 }
 
+impl Point {
+    pub fn new(x: Rational, y: Rational) -> Point {
+        Point { x: x, y: y }
+    }
+}
+
 impl std::fmt::Display for Point {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         try!(write!(f, "{},{}", self.x, self.y));
@@ -22,34 +28,10 @@ pub struct Polygon {
     skeleton: Vec<[usize; 2]>,
 }
 
-
-// A solution is valid iff:
-// - All xs and ys of source must be in [0, 1]
-// - No repeated coordinates in sources list
-// - All facet edges must have length > 0
-// - Edges cannot cross (but tips may touch!)
-// - All facet polygons are simple (non-intersecting edges)
-// - Each source vertex maps to the destination vertex with the same index
-// - At source position, the intersection of two different facets has zero area
-// - At source position, the union set of all facets exactly matches the initial square
-// - The size of the solution is no longer than 5000 Bytes
-
-// A solution is normalized iff:
-// - It is valid
-// - At source position, if two facets share an edge for a length greater than 0, then the
-//   intersection of those facets at destination position must be greater than 0.
-
-// Irrelevent to validity and normality:
-// - Skeleton of the original
-// - Whether the destinanation points are in [0, 1]
-// - Whether the destination can be reached just with folds, or whether it requires parallel
-//   transformation and/or rotation
-// - Whether the paper is folded at all
-
 pub struct Solution {
-    sources: Vec<Point>,
-    facets: Vec<Vec<usize>>,
-    destinations: Vec<Point>,
+    pub sources: Vec<Point>,
+    pub facets: Vec<Vec<usize>>,
+    pub destinations: Vec<Point>,
 }
 
 impl std::fmt::Display for Solution {
@@ -72,6 +54,67 @@ impl std::fmt::Display for Solution {
         for destination in &self.destinations {
             try!(write!(f, "{}\n", destination));
         }
+
+        Ok(())
+    }
+}
+
+pub enum SolError {
+    OutOfBounds,
+    Duplicates,
+    FacetEdgeLength0,
+}
+
+impl Solution {
+
+    /// Verifies whether a solution is valid.
+    ///
+    /// A solution is valid iff:
+    /// - All xs and ys of source must be in [0, 1]
+    /// - No repeated coordinates in sources list
+    /// - All facet edges must have length > 0
+    /// - Edges cannot cross (but tips may touch!)
+    /// - All facet polygons are simple (non-intersecting edges)
+    /// - Each source vertex maps to the destination vertex with the same index
+    /// - At source position, the intersection of two different facets has zero area
+    /// - At source position, the union set of all facets exactly matches the initial square
+    /// - The size of the solution is no longer than 5000 Bytes
+
+    /// A solution is normalized iff:
+    /// - It is valid
+    /// - At source position, if two facets share an edge for a length greater than 0, then the
+    ///   intersection of those facets at destination position must be greater than 0.
+
+    /// Irrelevent to validity and normality:
+    /// - Skeleton of the original
+    /// - Whether the destinanation points are in [0, 1]
+    /// - Whether the destination can be reached just with folds, or whether it requires parallel
+    ///   transformation and/or rotation
+    /// - Whether the paper is folded at all
+
+    pub fn verify(&self) -> Result<(), SolError> {
+        // Check source points are in bounds:
+        for p in &self.sources {
+            if p.x < Rational::new(0, 1) || p.x > Rational::new(1, 1)
+                || p.y < Rational::new(0, 1) || p.y > Rational::new(1, 1) {
+                return Err(SolError::OutOfBounds);
+            }
+        }
+
+        // Ensure no repeated coordinates:
+        let mut sorted = self.sources.clone();
+        sorted.sort();
+        sorted.dedup();
+
+        if self.sources.len() != sorted.len() {
+            return Err(SolError::Duplicates);
+        }
+
+        // TODO: Finish
+        // // Ensure facet edges have length > 0:
+        // for facet in &self.facets {
+
+        // }
 
         Ok(())
     }
