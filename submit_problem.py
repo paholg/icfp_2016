@@ -3,9 +3,7 @@
 import subprocess
 import sys
 
-API_KEY = "279-4ada75226794d3f7e114f6408ad14c73"
-HW_ENDPOINT = "http://2016sv.icfpcontest.org/api/hello"
-SUBMIT_ENDPOINT = "http://2016sv.icfpcontest.org/api/solution/submit"
+import teaminfo
 
 def main():
     if (len(sys.argv) != 2):
@@ -28,10 +26,10 @@ def main():
         "--compressed",
         "-L",
         "-H", "Expect:",
-        "-H", "X-API-Key: " + API_KEY,
+        "-H", "X-API-Key: " + teaminfo.API_KEY,
         "-F", "problem_id=" + problem_id,
         "-F", "solution_spec=@" + solution_file,
-        SUBMIT_ENDPOINT
+        teaminfo.PROBLEM_SUBMIT_ENDPOINT
     ]
 
     print subprocess.list2cmdline(cmd_list)
