@@ -42,8 +42,7 @@ def main():
 
     subprocess.call(["mkdir", "problems"])
     for p in range(len(problem_spec_hashes)):
-        sys.stdout.write("problem " + str(p) + " of " + str(len(problem_spec_hashes)) + '\r')
-        sys.stdout.flush()
+        print "problem " + str(p) + " of " + str(len(problem_spec_hashes))
         p_file_name = "problems/" + str(problem_ids[p]) + ".txt"
         if os.path.isfile(p_file_name):
             continue
@@ -58,9 +57,13 @@ def main():
                 teaminfo.GET_BLOB_ENDPOINT + problem_spec_hashes[p]
             ]
             problem_file_blob_txt = subprocess.check_output(problem_file_cmd_list)
+            if (str.find("Error", problem_file_blob_txt) != -1):
+                print "Got an error, on to the next one."
+                continue
             p_file = open(p_file_name, "w")
             p_file.write(problem_file_blob_txt)
             p_file.close()
+            print "Wrote ", p_file_name            
         
 
 if __name__ == "__main__":
