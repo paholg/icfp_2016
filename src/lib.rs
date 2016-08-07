@@ -24,8 +24,29 @@ impl std::fmt::Display for Point {
 
 #[derive(Clone, Debug)]
 pub struct Polygon {
-    vertices: Vec<Point>,
-    skeleton: Vec<[usize; 2]>,
+    pub vertices: Vec<Point>,
+    pub skeleton: Vec<[usize; 2]>,
+}
+
+impl Polygon {
+    pub fn new() -> Polygon {
+        Polygon {
+            vertices: Vec::new(),
+            skeleton: Vec::new(),
+        }
+    }
+
+    pub fn read<B: std::io::BufRead>(r: &mut B) -> Result<Polygon, std::io::Error> {
+        let mut buffer = String::new();
+        try!(r.read_line(&mut buffer));
+
+        use std::io::{Error, ErrorKind};
+        let n_polys: usize = try!(buffer.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error")));
+
+        let mut vertices = Vec::with_capacity(n_polys);
+
+        Ok(polygon)
+    }
 }
 
 pub struct Solution {
@@ -66,6 +87,15 @@ pub enum SolError {
 }
 
 impl Solution {
+    pub fn from_polygon(polygon: Polygon) -> Solution {
+        let len = polygon.vertices.len();
+
+        Solution {
+            sources: polygon.vertices,
+            facets: Vec::new(),
+            destinations: Vec::with_capacity(len)
+        }
+    }
 
     /// Verifies whether a solution is valid.
     ///
