@@ -1,6 +1,7 @@
 #!/usr/bin/python2.7
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -31,7 +32,8 @@ def main():
         else:
             print "Submitting", solution_file
             submit(solution_file)
-            open(solution_hash_file, "w").write(str(solution_hash_list + [hash(solution_text)]))
+            solution_hash_list.append(solution_text)
+            open(solution_hash_file, "w").write(str(solution_hash_list))
         time.sleep(3.6)
 
 def submit(solution_file):
@@ -54,8 +56,9 @@ def submit(solution_file):
         teaminfo.PROBLEM_SUBMIT_ENDPOINT
     ]
 
-    out_json = subprocess.check_output(cmd_list)
-    print out_json
+    submit_return_json = subprocess.check_output(cmd_list)
+    submit_return_list = json.loads(submit_return_json)
+    print submit_return_list
 
 if __name__ == "__main__":
     main()
