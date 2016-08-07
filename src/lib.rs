@@ -62,24 +62,28 @@ impl Problem {
 
         use std::io::{Error, ErrorKind};
         let line = try!(lines.next().unwrap());
-        let npolys: usize = try!(line.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: npolys")));
+        let npolys: usize = try!(line.parse()
+                                 .map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: npolys")));
 
         let mut polygons = Vec::with_capacity(npolys);
 
         for _ in 0..npolys {
             let line = try!(lines.next().unwrap());
-            let nvertices: usize = try!(line.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: nvertices")));
+            let nvertices: usize = try!(line.parse()
+                                        .map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: nvertices")));
             let mut polygon = Vec::with_capacity(nvertices);
             for _ in 0..nvertices {
                 let line = try!(lines.next().unwrap());
-                let vertex: Point = try!(line.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: vertex")));
+                let vertex: Point = try!(line.parse()
+                                         .map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: vertex")));
                 polygon.push(vertex);
             }
             polygons.push(polygon);
         }
 
         let line = try!(lines.next().unwrap());
-        let nedges: usize = try!(line.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: nedges")));
+        let nedges: usize = try!(line.parse()
+                                 .map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: nedges")));
 
         let mut skeleton = Vec::with_capacity(nedges);
         for _ in 0..nedges {
@@ -130,6 +134,36 @@ impl std::fmt::Display for Solution {
     }
 }
 
+impl Solution {
+    pub fn from_problem(problem: Problem) -> Solution {
+
+        let mut destinations = Vec::new();
+        for polygon in problem.polygons {
+            for vertex in polygon {
+                if !destinations.contains(&vertex) {
+                    destinations.push(vertex);
+                }
+            }
+        }
+
+        let skel = problem.skeleton;
+
+        let mut facets: Vec<Vec<usize>> = Vec::new();
+
+        for vertex in &destinations {
+            
+        }
+
+        Solution {
+            sources: destinations.clone(),
+            facets: facets,
+            destinations: destinations,
+        }
+
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
 pub enum SolError {
     OutOfBounds,
     Duplicates,
@@ -137,16 +171,6 @@ pub enum SolError {
 }
 
 impl Solution {
-    // pub fn from_problem(problem: Problem) -> Solution {
-    //     let len = problem.vertices.len();
-
-    //     Solution {
-    //         sources: problem.vertices,
-    //         facets: Vec::new(),
-    //         destinations: Vec::with_capacity(len)
-    //     }
-    // }
-
     /// Verifies whether a solution is valid.
     ///
     /// A solution is valid iff:
