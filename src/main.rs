@@ -35,21 +35,31 @@ fn main() {
 
     let mut args = std::env::args();
 
-    let fname = args.nth(1).unwrap();
+    let arg = args.nth(1).unwrap();
+    let fname = std::path::Path::new(&arg);
 
     let f = std::fs::File::open(fname).unwrap();
     let reader = std::io::BufReader::new(f);
     let problem = Problem::read(reader).unwrap();
     let origami = Origami::from_problem(problem);
 
-    let sol = Solution::from_origami(origami);
+    let solution = Solution::from_origami(origami);
 
-    match sol.verify() {
+    match solution.verify() {
         Err(e) => { println!("Couldn't verify solution: {:?}", e);
+                    println!("Failed to solve: {:?}", fname);
                     std::process::exit(1);
         }
         Ok(()) => (),
     }
 
-    println!("{}", sol);
+    let mut outname = std::path::PathBuf::new();
+    outname.push("solutions/");
+    outname.push(fname.file_name().unwrap());
+    let mut f = std::fs::File::create(&outname).unwrap();
+
+    use std::io::Write;
+    write!(f, "{}", solution).unwrap();
+
+    println!("Solved: {:?}", fname);
 }

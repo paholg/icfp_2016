@@ -1,7 +1,10 @@
 extern crate num;
 extern crate serde;
 
-use num::Rational;
+pub use num::Rational;
+
+pub mod origami;
+pub use origami::Origami;
 
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Ord, Eq)]
 pub struct Point {
@@ -21,6 +24,70 @@ impl Point {
             0 => false,
             _ => true,
         }
+    }
+
+    pub fn dot(&self, other: &Point) -> Rational {
+        self.x * other.x + self.y * other.y
+    }
+
+    pub fn reflect(&self, line: &Edge) -> Point {
+
+        let v = line.end - line.begin;
+
+        let projected = v * (*self - line.begin).dot(&v) / v.dot(&v) + line.begin;
+
+        projected + projected - *self
+    }
+}
+
+#[test]
+fn test_reflect() {
+    let zero = Rational::new(0, 1);
+    let one = Rational::new(1, 1);
+    let two = Rational::new(2, 1);
+    let three = Rational::new(3, 1);
+
+    let origin = Point::new(zero, zero);
+    let p1 = Point::new(one, zero);
+    let p2 = Point::new(zero, one);
+    let p3 = Point::new(one, one);
+
+    let x = Edge::new(origin, p1);
+    let y = Edge::new(origin, p2);
+    let forty_five = Edge::new(origin, p3);
+
+    let test = Point::new(two, three);
+
+    assert_eq!(test.reflect(&x), Point::new(two, -three));
+    assert_eq!(test.reflect(&y), Point::new(-two, three));
+    assert_eq!(test.reflect(&forty_five), Point::new(three, two));
+}
+
+impl std::ops::Add for Point {
+    type Output = Point;
+    fn add(self, rhs: Point) -> Point {
+        Point::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl std::ops::Sub for Point {
+    type Output = Point;
+    fn sub(self, rhs: Point) -> Point {
+        Point::new(self.x - rhs.x, self.y - rhs.y)
+    }
+}
+
+impl std::ops::Mul<Rational> for Point {
+    type Output = Point;
+    fn mul(self, rhs: Rational) -> Point {
+        Point::new(self.x * rhs, self.y * rhs)
+    }
+}
+
+impl std::ops::Div<Rational> for Point {
+    type Output = Point;
+    fn div(self, rhs: Rational) -> Point {
+        Point::new(self.x / rhs, self.y / rhs)
     }
 }
 
@@ -99,17 +166,6 @@ impl std::fmt::Display for Edge {
         Ok(())
     }
 }
-
-// #[derive(Clone, Debug)]
-// pub struct Polygon {
-//     pub edges: Vec<Edge>,
-// }
-
-// impl Polygon {
-//     pub fn new(edges: Vec<Edge>) -> Polygon {
-//         Polygon { edges: edges }
-//     }
-// }
 
 #[derive(Clone, Debug)]
 pub struct Problem {
@@ -223,168 +279,15 @@ fn power_set<T>(items: &mut std::slice::Iter<T>) -> Vec<Vec<T>> where T: Clone {
     Keep,
     Trash,
 }
-use MaybeKeep::{Keep, Trash};
 
-#[derive(Clone, Debug)]
-pub struct Origami {
-    pub sources: Vec<Point>,
-    pub polygons: Vec<Vec<Edge<usize>>>,
-    pub destinations: Vec<Point>,
-}
-
-impl Origami {
-    pub fn from_problem(problem: Problem) -> Origami {
-
-        let mut destinations = Vec::new();
-        for polygon in problem.polygons {
-            for vertex in polygon {
-                if !destinations.contains(&vertex) {
-                    destinations.push(vertex);
-                }
-            }
-        }
-
-        let power: Vec<_> = power_set(&mut problem.skeleton.iter()).into_iter().filter(|e| e.len() > 0).collect();
-        let mut to_keep = vec![Trash; power.len()];
-
-        // println!("POWER SET ({} left):", power.len());
-        // print_polys(&*power);
-
-        // Get rid of things that aren't polygons. Polygons will contain each point exactly twice.
-        for (mut keep, set) in to_keep.iter_mut().zip(power.iter()) {
-            let mut points_seen: Vec<(u8, Point)> = Vec::new();
-            'set: for edge in set {
-                for ref point in &[edge.begin, edge.end] {
-                    match points_seen.binary_search_by_key(*point, |&(_, p)| p) {
-                        Ok(i) => {
-                            points_seen[i].0 += 1;
-                            if points_seen[i].0 > 2 {
-                                break 'set;
-                            }
-                        },
-                        Err(i) => points_seen.insert(i, (1, **point)),
-                    }
-                }
-            }
-            if points_seen.iter().all(|&(n, _)| n == 2) {
-                *keep = Keep;
-            }
-        }
-
-        let polygons: Vec<_> = to_keep.into_iter().zip(power.into_iter()).filter_map(|(to_keep, set)| match to_keep {
-            Keep => Some(set),
-            Trash => None,
-        }).collect();
-
-        // println!("GOT RID OF NON-POLYGONS ({} left):", polygons.len());
-        // print_polys(&*polygons);
-
-        // Now get rid of polygons that contain all edges of smaller polygons
-        to_keep = vec![Keep; polygons.len()];
-        for i in 0..polygons.len() {
-            for j in 0..polygons.len() {
-                if i != j && to_keep[i] == Keep && to_keep[j] == Keep {
-                    to_keep[i] = Trash;
-                    for edge in &polygons[j] {
-                        if !polygons[i].contains(&edge) {
-                            to_keep[i] = Keep;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        let polygons: Vec<_> = to_keep.into_iter().zip(polygons.into_iter()).filter_map(|(to_keep, polygon)| match to_keep {
-            Keep => Some(polygon),
-            Trash => None,
-        }).collect();
-
-        // println!("GOT RID OF POLYGONS THAT FULLY CONTAIN SMALLER ONES ({} left)", polygons.len());
-        // print_polys(&polygons);
-
-
-        // Finally, get rid of polygons that fully intersect with smaller polygons
-        // Does not work if it contains all edges, which is why we do previous thing
-        to_keep = vec![Keep; polygons.len()];
-        for i in 0..polygons.len() {
-            for j in 0..polygons.len() {
-                if i != j && to_keep[i] == Keep && to_keep[j] == Keep {
-                    for edge in &polygons[i] {
-                        // fixme: We hit each point twice. That's kinda dumb.
-                        'point: for point in &[edge.begin, edge.end] {
-                            for segment in &polygons[j] {
-                                if *point == segment.begin || *point == segment.end {
-                                    continue 'point;
-                                }
-                            }
-
-                            if point.in_polygon(&polygons[j]) {
-                                to_keep[j] = Trash;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let polygons: Vec<_> = to_keep.into_iter().zip(polygons.into_iter()).filter_map(|(to_keep, polygon)| match to_keep {
-            Keep => Some(polygon),
-            Trash => None,
-        }).collect();
-
-        // Really finally, we'll make sure one doesn't contain all the vertices of another
-        to_keep = vec![Keep; polygons.len()];
-        for i in 0..polygons.len() {
-            let poly_iter = polygons[i].iter().flat_map(|edge| Some(edge.begin).into_iter().chain(Some(edge.end).into_iter()));
-            let poly: Vec<_> = poly_iter.collect();
-            'jloop: for j in 0..polygons.len() {
-                if i != j && to_keep[i] == Keep && to_keep[j] == Keep {
-                    to_keep[i] = Trash;
-                    for edge in &polygons[j] {
-                        for point in &[edge.begin, edge.end] {
-                            if !poly.contains(&&point) {
-                                to_keep[i] = Keep;
-                                break 'jloop;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let polygons: Vec<_> = to_keep.into_iter().zip(polygons.into_iter()).filter_map(|(to_keep, polygon)| match to_keep {
-            Keep => Some(polygon),
-            Trash => None,
-        }).collect();
-
-        // println!("GOT RID OF POLYGONS CONTAINING POINTS FROM OTHERS ({} left)", polygons.len());
-        // print_polys(&polygons);
-
-        let poly_indices: Vec<_> = polygons.into_iter().map(|poly| {
-            poly.into_iter().map(|edge| {
-                let begin = destinations.iter().position(|&p| p == edge.begin).unwrap();
-                let end = destinations.iter().position(|&p| p == edge.end).unwrap();
-                Edge::new(begin, end)
-            }).collect()
-        }).collect();
-
-        Origami {
-            sources: destinations.clone(),
-            polygons: poly_indices,
-            destinations: destinations,
-        }
-    }
-}
-
-fn print_polys(polys: &[Vec<Edge>]) {
-    for poly in polys {
-        println!("Polygon:");
-        for edge in poly {
-            println!("{}", edge);
-        }
-    }
-}
+// fn print_polys(polys: &[Vec<Edge>]) {
+//     for poly in polys {
+//         println!("Polygon:");
+//         for edge in poly {
+//             println!("{}", edge);
+//         }
+//     }
+// }
 
 #[derive(Copy, Clone, Debug)]
 pub enum SolError {

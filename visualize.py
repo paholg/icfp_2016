@@ -22,6 +22,7 @@ for _ in range(num_polys):
         v_str = shape_file.readline()
         x = float(eval("1.0*" + v_str[:v_str.find(',')]))
         y = float(eval("1.0*" + v_str[v_str.find(',')+1:]))
+        plt.plot(x, y, '.k', markersize=50)
         X.append(x)
         Y.append(y)
     plt.plot(X,Y, linewidth=5.0, color='b')
