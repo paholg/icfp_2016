@@ -421,12 +421,12 @@ impl Solution {
 
     pub fn verify(&self) -> Result<(), SolError> {
         // Check source points are in bounds:
-        // for p in &self.sources {
-        //     if p.x < Rational::new(0, 1) || p.x > Rational::new(1, 1)
-        //         || p.y < Rational::new(0, 1) || p.y > Rational::new(1, 1) {
-        //             return Err(SolError::OutOfBounds);
-        //         }
-        // }
+        for p in &self.sources {
+            if p.x < Rational::new(0, 1) || p.x > Rational::new(1, 1)
+                || p.y < Rational::new(0, 1) || p.y > Rational::new(1, 1) {
+                    return Err(SolError::OutOfBounds);
+                }
+        }
 
         // Ensure no repeated coordinates:
         let mut sorted = self.sources.clone();
