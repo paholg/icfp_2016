@@ -3,7 +3,7 @@ extern crate serde;
 
 use num::Rational;
 
-#[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Ord, Eq)]
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Ord, Eq)]
 pub struct Point {
     x: Rational,
     y: Rational,
@@ -12,6 +12,54 @@ pub struct Point {
 impl Point {
     pub fn new(x: Rational, y: Rational) -> Point {
         Point { x: x, y: y }
+    }
+
+    pub fn in_polygon(&self, polygon: &[Edge]) -> bool {
+        let count = polygon.iter().filter(|edge| ray_intersects_segment(&self, &edge)).count();
+
+        match count % 2 {
+            0 => false,
+            _ => true,
+        }
+    }
+}
+
+fn ray_intersects_segment(p: &Point, seg: &Edge) -> bool {
+    let (a, b) = if seg.begin.y < seg.end.y {
+        (&seg.begin, &seg.end)
+    } else {
+        (&seg.end, &seg.begin)
+    };
+
+    if p.y < a.y || p.y > b.y {
+        return false;
+    }
+
+    if p.x > std::cmp::max(a.x.clone(), b.x.clone()) {
+        return false;
+    }
+
+    if p.x < std::cmp::min(a.x.clone(), b.x.clone()) {
+        return true;
+    }
+
+    let m_blue = if a.x != p.x {
+        (p.y.clone() - a.y.clone()) / (p.x - a.x.clone())
+    } else {
+        return true;
+    };
+
+    let m_red = if a.x.clone() != b.x.clone() {
+        (b.y - a.y) / (b.x - a.x)
+    } else {
+        return false;
+    };
+
+
+    if m_blue >= m_red {
+        true
+    } else {
+        false
     }
 }
 
@@ -32,21 +80,41 @@ impl std::str::FromStr for Point {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Edge<T = Point> {
+    begin: T,
+    end: T,
+}
+
+impl<T> Edge<T> {
+    pub fn new(begin: T, end: T) -> Edge<T> {
+        Edge { begin: begin, end: end }
+    }
+}
+
+impl std::fmt::Display for Edge {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        try!(write!(f, "({}, {}) -> ({}, {})", self.begin.x, self.begin.y, self.end.x, self.end.y));
+
+        Ok(())
+    }
+}
+
 // #[derive(Clone, Debug)]
 // pub struct Polygon {
-//     pub vertices: Vec<Point>
+//     pub edges: Vec<Edge>,
 // }
 
 // impl Polygon {
-//     pub fn new(vertices: Vec<Point>) -> Polygon {
-//         Polygon { vertices: vertices }
+//     pub fn new(edges: Vec<Edge>) -> Polygon {
+//         Polygon { edges: edges }
 //     }
 // }
 
 #[derive(Clone, Debug)]
 pub struct Problem {
     pub polygons: Vec<Vec<Point>>,
-    pub skeleton: Vec<[Point; 2]>,
+    pub skeleton: Vec<Edge>,
 }
 
 impl Problem {
@@ -95,7 +163,7 @@ impl Problem {
             let p2: Point = try!(
                 try!(points.next().ok_or(Error::new(ErrorKind::InvalidInput, "parse error: p2")))
                     .trim().parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: p2")));
-            skeleton.push([p1, p2]);
+            skeleton.push(Edge::new(p1, p2));
         }
 
 
@@ -103,6 +171,7 @@ impl Problem {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Solution {
     pub sources: Vec<Point>,
     pub facets: Vec<Vec<usize>>,
@@ -134,8 +203,37 @@ impl std::fmt::Display for Solution {
     }
 }
 
-impl Solution {
-    pub fn from_problem(problem: Problem) -> Solution {
+fn power_set<T>(items: &mut std::slice::Iter<T>) -> Vec<Vec<T>> where T: Clone {
+    let mut power = Vec::new();
+    match items.next() {
+        None => power.push(Vec::new()),
+        Some(item) => {
+            for mut set in power_set(items).into_iter() {
+                power.push(set.clone());
+                set.push(item.clone());
+                power.push(set);
+            }
+        }
+    }
+    power
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum MaybeKeep {
+    Keep,
+    Trash,
+}
+use MaybeKeep::{Keep, Trash};
+
+#[derive(Clone, Debug)]
+pub struct Origami {
+    pub sources: Vec<Point>,
+    pub polygons: Vec<Vec<Edge<usize>>>,
+    pub destinations: Vec<Point>,
+}
+
+impl Origami {
+    pub fn from_problem(problem: Problem) -> Origami {
 
         let mut destinations = Vec::new();
         for polygon in problem.polygons {
@@ -146,20 +244,145 @@ impl Solution {
             }
         }
 
-        let skel = problem.skeleton;
+        let power: Vec<_> = power_set(&mut problem.skeleton.iter()).into_iter().filter(|e| e.len() > 0).collect();
+        let mut to_keep = vec![Trash; power.len()];
 
-        let mut facets: Vec<Vec<usize>> = Vec::new();
+        // println!("POWER SET ({} left):", power.len());
+        // print_polys(&*power);
 
-        for vertex in &destinations {
-            
+        // Get rid of things that aren't polygons. Polygons will contain each point exactly twice.
+        for (mut keep, set) in to_keep.iter_mut().zip(power.iter()) {
+            let mut points_seen: Vec<(u8, Point)> = Vec::new();
+            'set: for edge in set {
+                for ref point in &[edge.begin, edge.end] {
+                    match points_seen.binary_search_by_key(*point, |&(_, p)| p) {
+                        Ok(i) => {
+                            points_seen[i].0 += 1;
+                            if points_seen[i].0 > 2 {
+                                break 'set;
+                            }
+                        },
+                        Err(i) => points_seen.insert(i, (1, **point)),
+                    }
+                }
+            }
+            if points_seen.iter().all(|&(n, _)| n == 2) {
+                *keep = Keep;
+            }
         }
 
-        Solution {
+        let polygons: Vec<_> = to_keep.into_iter().zip(power.into_iter()).filter_map(|(to_keep, set)| match to_keep {
+            Keep => Some(set),
+            Trash => None,
+        }).collect();
+
+        // println!("GOT RID OF NON-POLYGONS ({} left):", polygons.len());
+        // print_polys(&*polygons);
+
+        // Now get rid of polygons that contain all edges of smaller polygons
+        to_keep = vec![Keep; polygons.len()];
+        for i in 0..polygons.len() {
+            for j in 0..polygons.len() {
+                if i != j && to_keep[i] == Keep && to_keep[j] == Keep {
+                    to_keep[i] = Trash;
+                    for edge in &polygons[j] {
+                        if !polygons[i].contains(&edge) {
+                            to_keep[i] = Keep;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        let polygons: Vec<_> = to_keep.into_iter().zip(polygons.into_iter()).filter_map(|(to_keep, polygon)| match to_keep {
+            Keep => Some(polygon),
+            Trash => None,
+        }).collect();
+
+        // println!("GOT RID OF POLYGONS THAT FULLY CONTAIN SMALLER ONES ({} left)", polygons.len());
+        // print_polys(&polygons);
+
+
+        // Finally, get rid of polygons that fully intersect with smaller polygons
+        // Does not work if it contains all edges, which is why we do previous thing
+        to_keep = vec![Keep; polygons.len()];
+        for i in 0..polygons.len() {
+            for j in 0..polygons.len() {
+                if i != j && to_keep[i] == Keep && to_keep[j] == Keep {
+                    for edge in &polygons[i] {
+                        // fixme: We hit each point twice. That's kinda dumb.
+                        'point: for point in &[edge.begin, edge.end] {
+                            for segment in &polygons[j] {
+                                if *point == segment.begin || *point == segment.end {
+                                    continue 'point;
+                                }
+                            }
+
+                            if point.in_polygon(&polygons[j]) {
+                                to_keep[j] = Trash;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let polygons: Vec<_> = to_keep.into_iter().zip(polygons.into_iter()).filter_map(|(to_keep, polygon)| match to_keep {
+            Keep => Some(polygon),
+            Trash => None,
+        }).collect();
+
+        // Really finally, we'll make sure one doesn't contain all the vertices of another
+        to_keep = vec![Keep; polygons.len()];
+        for i in 0..polygons.len() {
+            let poly_iter = polygons[i].iter().flat_map(|edge| Some(edge.begin).into_iter().chain(Some(edge.end).into_iter()));
+            let poly: Vec<_> = poly_iter.collect();
+            'jloop: for j in 0..polygons.len() {
+                if i != j && to_keep[i] == Keep && to_keep[j] == Keep {
+                    to_keep[i] = Trash;
+                    for edge in &polygons[j] {
+                        for point in &[edge.begin, edge.end] {
+                            if !poly.contains(&&point) {
+                                to_keep[i] = Keep;
+                                break 'jloop;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let polygons: Vec<_> = to_keep.into_iter().zip(polygons.into_iter()).filter_map(|(to_keep, polygon)| match to_keep {
+            Keep => Some(polygon),
+            Trash => None,
+        }).collect();
+
+        // println!("GOT RID OF POLYGONS CONTAINING POINTS FROM OTHERS ({} left)", polygons.len());
+        // print_polys(&polygons);
+
+        let poly_indices: Vec<_> = polygons.into_iter().map(|poly| {
+            poly.into_iter().map(|edge| {
+                let begin = destinations.iter().position(|&p| p == edge.begin).unwrap();
+                let end = destinations.iter().position(|&p| p == edge.end).unwrap();
+                Edge::new(begin, end)
+            }).collect()
+        }).collect();
+
+        Origami {
             sources: destinations.clone(),
-            facets: facets,
+            polygons: poly_indices,
             destinations: destinations,
         }
+    }
+}
 
+fn print_polys(polys: &[Vec<Edge>]) {
+    for poly in polys {
+        println!("Polygon:");
+        for edge in poly {
+            println!("{}", edge);
+        }
     }
 }
 
@@ -198,12 +421,12 @@ impl Solution {
 
     pub fn verify(&self) -> Result<(), SolError> {
         // Check source points are in bounds:
-        for p in &self.sources {
-            if p.x < Rational::new(0, 1) || p.x > Rational::new(1, 1)
-                || p.y < Rational::new(0, 1) || p.y > Rational::new(1, 1) {
-                return Err(SolError::OutOfBounds);
-            }
-        }
+        // for p in &self.sources {
+        //     if p.x < Rational::new(0, 1) || p.x > Rational::new(1, 1)
+        //         || p.y < Rational::new(0, 1) || p.y > Rational::new(1, 1) {
+        //             return Err(SolError::OutOfBounds);
+        //         }
+        // }
 
         // Ensure no repeated coordinates:
         let mut sorted = self.sources.clone();
@@ -221,5 +444,26 @@ impl Solution {
         // }
 
         Ok(())
+    }
+
+    pub fn from_origami(origami: Origami) -> Solution {
+        let new_polys = origami.polygons.into_iter().map(|poly| {
+            let mut points: Vec<usize> = Vec::with_capacity(poly.len());
+            for edge in poly {
+                if points.iter().find(|&&p| p == edge.begin) == None {
+                    points.push(edge.begin);
+                }
+                if points.iter().find(|&&p| p == edge.end) == None {
+                    points.push(edge.end);
+                }
+            }
+            points
+        }).collect();
+
+        Solution {
+            sources: origami.sources,
+            facets: new_polys,
+            destinations: origami.destinations,
+        }
     }
 }

@@ -1,7 +1,6 @@
 extern crate icfp_2016 as icfp;
 extern crate num;
 
-use num::Rational;
 use icfp::*;
 
 fn main() {
@@ -34,12 +33,23 @@ fn main() {
 
     // assert!(sol.verify().is_ok());
 
-    let mut f = std::fs::File::open("problems/sample.txt").unwrap();
-    let mut reader = std::io::BufReader::new(f);
+    let mut args = std::env::args();
+
+    let fname = args.nth(1).unwrap();
+
+    let f = std::fs::File::open(fname).unwrap();
+    let reader = std::io::BufReader::new(f);
     let problem = Problem::read(reader).unwrap();
-    let solution = Solution::from_problem(problem);
+    let origami = Origami::from_problem(problem);
 
-    solution.verify().unwrap();
+    let sol = Solution::from_origami(origami);
 
-    println!("{}", solution);
+    match sol.verify() {
+        Err(e) => { println!("Couldn't verify solution: {:?}", e);
+                    std::process::exit(1);
+        }
+        Ok(()) => (),
+    }
+
+    println!("{}", sol);
 }
