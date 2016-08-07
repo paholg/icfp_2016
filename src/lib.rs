@@ -22,30 +22,80 @@ impl std::fmt::Display for Point {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Polygon {
-    pub vertices: Vec<Point>,
-    pub skeleton: Vec<[usize; 2]>,
+impl std::str::FromStr for Point {
+    type Err = std::fmt::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut iter = s.split(',');
+        let x: Rational = try!(try!(iter.next().ok_or(std::fmt::Error)).parse().map_err(|_| std::fmt::Error));
+        let y: Rational = try!(try!(iter.next().ok_or(std::fmt::Error)).parse().map_err(|_| std::fmt::Error));
+        Ok(Point::new(x, y))
+    }
 }
 
-impl Polygon {
-    pub fn new() -> Polygon {
-        Polygon {
-            vertices: Vec::new(),
+// #[derive(Clone, Debug)]
+// pub struct Polygon {
+//     pub vertices: Vec<Point>
+// }
+
+// impl Polygon {
+//     pub fn new(vertices: Vec<Point>) -> Polygon {
+//         Polygon { vertices: vertices }
+//     }
+// }
+
+#[derive(Clone, Debug)]
+pub struct Problem {
+    pub polygons: Vec<Vec<Point>>,
+    pub skeleton: Vec<[Point; 2]>,
+}
+
+impl Problem {
+    pub fn new() -> Problem {
+        Problem {
+            polygons: Vec::new(),
             skeleton: Vec::new(),
         }
     }
 
-    pub fn read<B: std::io::BufRead>(r: &mut B) -> Result<Polygon, std::io::Error> {
-        let mut buffer = String::new();
-        try!(r.read_line(&mut buffer));
+    pub fn read<B: std::io::BufRead>(r: B) -> Result<Problem, std::io::Error> {
+        let mut lines = r.lines();
 
         use std::io::{Error, ErrorKind};
-        let n_polys: usize = try!(buffer.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error")));
+        let line = try!(lines.next().unwrap());
+        let npolys: usize = try!(line.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: npolys")));
 
-        let mut vertices = Vec::with_capacity(n_polys);
+        let mut polygons = Vec::with_capacity(npolys);
 
-        Ok(polygon)
+        for _ in 0..npolys {
+            let line = try!(lines.next().unwrap());
+            let nvertices: usize = try!(line.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: nvertices")));
+            let mut polygon = Vec::with_capacity(nvertices);
+            for _ in 0..nvertices {
+                let line = try!(lines.next().unwrap());
+                let vertex: Point = try!(line.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: vertex")));
+                polygon.push(vertex);
+            }
+            polygons.push(polygon);
+        }
+
+        let line = try!(lines.next().unwrap());
+        let nedges: usize = try!(line.parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: nedges")));
+
+        let mut skeleton = Vec::with_capacity(nedges);
+        for _ in 0..nedges {
+            let line = try!(lines.next().unwrap());
+            let mut points = line.split_whitespace();
+            let p1: Point = try!(
+                try!(points.next().ok_or(Error::new(ErrorKind::InvalidInput, "parse error: p1")))
+                    .trim().parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: p1")));
+            let p2: Point = try!(
+                try!(points.next().ok_or(Error::new(ErrorKind::InvalidInput, "parse error: p2")))
+                    .trim().parse().map_err(|_| Error::new(ErrorKind::InvalidInput, "parse error: p2")));
+            skeleton.push([p1, p2]);
+        }
+
+
+        Ok(Problem { polygons: polygons, skeleton: skeleton } )
     }
 }
 
@@ -87,15 +137,15 @@ pub enum SolError {
 }
 
 impl Solution {
-    pub fn from_polygon(polygon: Polygon) -> Solution {
-        let len = polygon.vertices.len();
+    // pub fn from_problem(problem: Problem) -> Solution {
+    //     let len = problem.vertices.len();
 
-        Solution {
-            sources: polygon.vertices,
-            facets: Vec::new(),
-            destinations: Vec::with_capacity(len)
-        }
-    }
+    //     Solution {
+    //         sources: problem.vertices,
+    //         facets: Vec::new(),
+    //         destinations: Vec::with_capacity(len)
+    //     }
+    // }
 
     /// Verifies whether a solution is valid.
     ///
